@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Maze Solver Prototype</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 800px; width: 100%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; color: #1f2937; text-align: center; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        button, select { padding: 10px 16px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; transition: all 0.2s; }
+        button:hover { background: #f9fafb; border-color: #9ca3af; }
+        button.primary { background: #2563eb; color: white; border: none; }
+        button.primary:hover { background: #1d4ed8; }
+        .grid-container { display: flex; justify-content: center; margin-bottom: 20px; }
+        #maze { display: grid; gap: 1px; background-color: #d1d5db; border: 2px solid #374151; }
+        .cell { width: 25px; height: 25px; background-color: white; transition: background-color 0.1s; }
+        .cell.wall { background-color: #374151; }
+        .cell.start { background-color: #10b981; }
+        .cell.end { background-color: #ef4444; }
+        .cell.visited { background-color: #93c5fd; }
+        .cell.path { background-color: #fbbf24; }
+        .stats { display: flex; justify-content: space-around; background: #f9fafb; padding: 15px; border-radius: 6px; font-weight: 500; color: #4b5563; }
+        .legend { display: flex; justify-content: center; gap: 15px; margin-top: 15px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-box { width: 12px; height: 12px; border: 1px solid #d1d5db; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Maze Solver Prototype</h1>
+    <div class="controls">
+        <select id="algo">
+            <option value="bfs">Breadth-First Search (BFS)</option>
+            <option value="dfs">Depth-First Search (DFS)</option>
+            <option value="astar">A* Search (AI Heuristic)</option>
+        </select>
+        <button class="primary" onclick="startSolving()">Solve Maze</button>
+        <button onclick="generateRandomMaze()">Randomize Walls</button>
+        <button onclick="clearGrid()">Clear Path</button>
+    </div>
+    <div class="grid-container"><div id="maze"></div></div>
+    <div class="stats">
+        <div>Nodes Explored: <span id="explored-count">0</span></div>
+        <div>Path Length: <span id="path-length">0</span></div>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-box" style="background:#10b981"></div> Start</div>
+        <div class="legend-item"><div class="legend-box" style="background:#ef4444"></div> End</div>
+        <div class="legend-item"><div class="legend-box" style="background:#374151"></div> Wall</div>
+        <div class="legend-item"><div class="legend-box" style="background:#93c5fd"></div> Explored</div>
+        <div class="legend-item"><div class="legend-box" style="background:#fbbf24"></div> Shortest Path</div>
+    </div>
+</div>
+<script>
+    const ROWS = 15; const COLS = 20; let grid = []; let start = [1, 1]; let end = [ROWS - 2, COLS - 2]; let isDrawing = false;
+    function initGrid() {
+        const mazeDiv = document.getElementById('maze'); mazeDiv.style.gridTemplateColumns = `repeat(${COLS}, 25px)`; mazeDiv.innerHTML = ''; grid = [];
+        for (let r = 0; r < ROWS; r++) {
+            grid[r] = [];
+            for (let c = 0; c < COLS; c++) {
+                const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.row = r; cell.dataset.col = c;
+                if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) { grid[r][c] = 1; cell.classList.add('wall'); } else { grid[r][c] = 0; }
+                cell.addEventListener('mousedown', () => { if ((r!==start[0] || c!==start[1]) && (r!==end[0] || c!==end[1]) && r!==0 && r!==ROWS-1 && c!==0 && c!==COLS-1) { isDrawing = true; toggleWall(r, c, cell); } });
+                cell.addEventListener('mouseenter', () => { if (isDrawing && (r!==start[0] || c!==start[1]) && (r!==end[0] || c!==end[1]) && r!==0 && r!==ROWS-1 && c!==0 && c!==COLS-1) { toggleWall(r, c, cell); } });
+                mazeDiv.appendChild(cell);
+            }
+        }
+        window.addEventListener('mouseup', () => isDrawing = false); updateStartEndStyles();
+    }
+    function toggleWall(r, c, cell) { if (grid[r][c] === 0) { grid[r][c] = 1; cell.classList.add('wall'); } else { grid[r][c] = 0; cell.classList.remove('wall'); } }
+    function updateStartEndStyles() { document.querySelector(`[data-row='${start[0]}'][data-col='${start[1]}']`).classList.add('start'); document.querySelector(`[data-row='${end[0]}'][data-col='${end[1]}']`).classList.add('end'); }
+    function generateRandomMaze() { clearGrid(); for (let r = 1; r < ROWS - 1; r++) { for (let c = 1; c < COLS - 1; c++) { if ((r === start[0] && c === start[1]) || (r === end[0] && c === end[1])) continue; if (Math.random() < 0.3) { grid[r][c] = 1; document.querySelector(`[data-row='${r}'][data-col='${c}']`).classList.add('wall'); } else { grid[r][c] = 0; document.querySelector(`[data-row='${r}'][data-col='${c}']`).classList.remove('wall'); } } } }
+    function clearGrid() { document.querySelectorAll('.cell').forEach(cell => { cell.classList.remove('visited', 'path'); }); document.getElementById('explored-count').innerText = '0'; document.getElementById('path-length').innerText = '0'; }
+    function getNeighbors(r, c) { const dirs = [[-1,0], [1,0], [0,-1], [0,1]]; const neighbors = []; for (let [dr, dc] of dirs) { let nr = r + dr, nc = c + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === 0) { neighbors.push([nr, nc]); } } return neighbors; }
+    async function startSolving() {
+        clearGrid(); const algo = document.getElementById('algo').value; let visited = new Set(); let parent = {}; let queue = []; let found = false; let exploredOrder = [];
+        if (algo === 'bfs') {
+            queue.push(start); visited.add(start.toString());
+            while(queue.length > 0) {
+                let curr = queue.shift(); exploredOrder.push(curr); if (curr[0] === end[0] && curr[1] === end[1]) { found = true; break; }
+                for (let n of getNeighbors(curr[0], curr[1])) { if (!visited.has(n.toString())) { visited.add(n.toString()); parent[n.toString()] = curr; queue.push(n); } }
+            }
+        } else if (algo === 'dfs') {
+            let stack = [start];
+            while(stack.length > 0) {
+                let curr = stack.pop(); if (visited.has(curr.toString())) continue; visited.add(curr.toString()); exploredOrder.push(curr); if (curr[0] === end[0] && curr[1] === end[1]) { found = true; break; }
+                for (let n of getNeighbors(curr[0], curr[1])) { if (!visited.has(n.toString())) { parent[n.toString()] = curr; stack.push(n); } }
+            }
+        } else if (algo === 'astar') {
+            let openSet = [start]; let gScore = {}; gScore[start.toString()] = 0; let fScore = {}; fScore[start.toString()] = Math.abs(start[0]-end[0]) + Math.abs(start[1]-end[1]);
+            while(openSet.length > 0) {
+                openSet.sort((a,b) => fScore[a.toString()] - fScore[b.toString()]); let curr = openSet.shift(); exploredOrder.push(curr); if (curr[0] === end[0] && curr[1] === end[1]) { found = true; break; }
+                for (let n of getNeighbors(curr[0], curr[1])) {
+                    let tentative_g = gScore[curr.toString()] + 1;
+                    if (tentative_g < (gScore[n.toString()] ?? Infinity)) { parent[n.toString()] = curr; gScore[n.toString()] = tentative_g; fScore[n.toString()] = tentative_g + Math.abs(n[0]-end[0]) + Math.abs(n[1]-end[1]); if (!openSet.some(e => e.toString() === n.toString())) openSet.push(n); }
+                }
+            }
+        }
+        for (let i = 0; i < exploredOrder.length; i++) {
+            let [r, c] = exploredOrder[i]; if ((r!==start[0] || c!==start[1]) && (r!==end[0] || c!==end[1])) { document.querySelector(`[data-row='${r}'][data-col='${c}']`).classList.add('visited'); document.getElementById('explored-count').innerText = i; await new Promise(r => setTimeout(r, 15)); }
+        }
+        if (found) {
+            let curr = end; let pathLen = 0;
+            while(curr.toString() !== start.toString()) { let [r, c] = curr; if (curr.toString() !== end.toString()) { document.querySelector(`[data-row='${r}'][data-col='${c}']`).classList.add('path'); } curr = parent[curr.toString()]; pathLen++; }
+            document.getElementById('path-length').innerText = pathLen;
+        } else { alert("No path found to the exit!"); }
+    }
+    initGrid();
+</script>
+</body>
+</html>
